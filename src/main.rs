@@ -1,3 +1,13 @@
+use clap::Parser;
+
+#[derive(Parser)]
+struct Cli {
+    /// Specify domain
+    #[arg(short, long)]
+    domain: String,
+}
+
 fn main() {
-    println!("Hello, world!");
+    let args: Cli = Cli::parse();
+    println!("{}", args.domain)
 }
