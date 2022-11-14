@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.0.22", features = ["derive"] }
 rand = "0.8.4"
+packed_struct = "0.10.0"
