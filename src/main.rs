@@ -6,9 +6,6 @@ use std::str::FromStr;
 use clap::Parser;
 use rand::Rng;
 
-#[macro_use]
-extern crate packed_struct;
-
 #[derive(Parser)]
 struct Cli {
     /// Specify domain
