@@ -30,20 +30,12 @@ impl Query {
 }
 
 /// DNS 查询结构 Header 部分
-#[derive(PackedStruct)]
-#[packed_struct(bit_numbering="msb0")]
 struct QueryHeader {
-    #[packed_field(bits="0..=1")]
     query_id: u16,
-    #[packed_field(bits="2..=3")]
     flag: u16,
-    #[packed_field(bits="4..=5")]
     num_questions: u16,
-    #[packed_field(bits="6..=7")]
     num_answers: u16,
-    #[packed_field(bits="7..=8")]
     num_auth: u16,
-    #[packed_field(bits="9..=10")]
     num_additional: u16,
 }
 
