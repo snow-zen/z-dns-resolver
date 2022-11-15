@@ -8,13 +8,13 @@ pub enum QueryType {
 }
 
 /// DNS 查询结构
-pub struct Query<'a> {
+pub struct Query {
     header: QueryHeader,
-    question: QueryQuestion<'a>,
+    question: QueryQuestion,
 }
 
-impl<'a> Query<'a> {
-    pub fn new(domain: &'a str, query_type: u16) -> Self {
+impl Query {
+    pub fn new(domain: &str, query_type: u16) -> Self {
         Self {
             header: QueryHeader::new(
                 rand::thread_rng().gen_range(0..65535),
@@ -67,18 +67,18 @@ impl QueryHeader {
     }
 }
 
-struct QueryQuestion<'a> {
+struct QueryQuestion {
     query_class: u16,
     query_type: u16,
-    domain: &'a str,
+    domain: Vec<u8>,
 }
 
-impl<'a> QueryQuestion<'a> {
-    fn new(domain: &'a str, query_type: u16) -> Self {
+impl QueryQuestion {
+    fn new(domain: &str, query_type: u16) -> Self {
         Self {
             query_class: 1,
             query_type,
-            domain,
+            domain: Vec::new(),
         }
     }
 }
