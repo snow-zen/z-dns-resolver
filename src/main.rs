@@ -8,14 +8,17 @@ use clap::Parser;
 use rand::Rng;
 
 #[derive(Parser)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
     /// Specify domain
-    #[arg(short, long)]
     domain: String,
+    /// Specify domain server host
+    #[arg(short = 'D', long, default_value = "114.114.114.114")]
+    dns_server: String,
+    /// Specify domain server port
+    #[arg(short, long, default_value = "53", value_parser = clap::value_parser!(u16).range(0..=65535))]
+    port: u16,
 }
-
-const DNS_PROTOCOL_DEFAULT_PORT: u16 = 53;
-const DEFAULT_DNS_SERVER_HOST: &str = "114.114.114.114";
 
 fn main() -> std::io::Result<()> {
     let args: Cli = Cli::parse();
@@ -23,10 +26,7 @@ fn main() -> std::io::Result<()> {
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?;
 
     socket
-        .connect((
-            Ipv4Addr::from_str(DEFAULT_DNS_SERVER_HOST).unwrap(),
-            DNS_PROTOCOL_DEFAULT_PORT,
-        ))
+        .connect((Ipv4Addr::from_str(&args.dns_server).unwrap(), args.port))
         .expect("connect fail");
 
     let query = Query::new(
@@ -38,9 +38,9 @@ fn main() -> std::io::Result<()> {
         .send(&serialize_to_bytes(&query))
         .expect("send message fail");
 
-    let mut buf = [0; 1024];
+    let mut buf = [0; 1024 * 4]; // 4k
     let (number_of_buf, _) = socket.recv_from(&mut buf).expect("Didn't receive data");
 
-    println!("{:?}", String::from_utf8(Vec::from(&buf[..number_of_buf])));
+    println!("{:?}", Vec::from(&buf[..number_of_buf]));
     Ok(())
 }

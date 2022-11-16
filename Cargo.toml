@@ -2,6 +2,8 @@
 name = "z-dns-resolver"
 version = "0.1.0"
 edition = "2021"
+description = "A simple dns parser"
+authors = ["snow-zen"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
