@@ -1,49 +1,46 @@
-use bincode::Options;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
+use crate::query::QueryType::A;
+use bincode::config::{BigEndian, Configuration, Fixint};
+use bincode::enc::write::Writer;
+use bincode::enc::Encoder;
+use bincode::error::EncodeError;
+use bincode::{config, enc, Encode};
 
-pub fn serialize_to_bytes<S>(t: &S) -> Vec<u8>
+const ENCODE_CONFIG: Configuration<BigEndian, Fixint> = config::standard()
+    .with_big_endian()
+    .with_fixed_int_encoding();
+
+pub fn serialize_to_bytes<E>(t: &E) -> Vec<u8>
 where
-    S: ?Sized + serde::Serialize,
+    E: enc::Encode,
 {
-    bincode::options()
-        .with_big_endian()
-        .with_fixint_encoding()
-        .allow_trailing_bytes()
-        .serialize(t)
-        .unwrap()
+    bincode::encode_to_vec(t, ENCODE_CONFIG).unwrap()
 }
 
 /// 查询类型
+#[derive(Encode)]
 pub enum QueryType {
     /// A 记录
-    A = 1,
+    A,
 }
 
 /// DNS 查询结构
+#[derive(Encode)]
 pub struct Query {
     header: QueryHeader,
     question: QueryQuestion,
 }
 
 impl Query {
-    pub fn new(domain: &str, query_type: u16) -> Self {
+    pub fn new(query_id: u16, domain: &str, query_type: QueryType) -> Self {
         Self {
-            header: QueryHeader::new(
-                rand::thread_rng().gen_range(0..65535),
-                0x0100,
-                0x0001,
-                0x0000,
-                0x0000,
-                0x0000,
-            ),
+            header: QueryHeader::new(query_id, 0x0100, 0x0001, 0x0000, 0x0000, 0x0000),
             question: QueryQuestion::new(domain, query_type),
         }
     }
 }
 
 /// DNS 查询结构 Header 部分
-#[derive(Serialize)]
+#[derive(Encode)]
 struct QueryHeader {
     query_id: u16,
     flag: u16,
@@ -73,15 +70,14 @@ impl QueryHeader {
     }
 }
 
-#[derive(Serialize)]
 struct QueryQuestion {
     domain: Vec<u8>,
-    query_type: u16,
+    query_type: QueryType,
     query_class: u16,
 }
 
 impl QueryQuestion {
-    fn new(domain: &str, query_type: u16) -> Self {
+    fn new(domain: &str, query_type: QueryType) -> Self {
         Self {
             query_class: 1,
             query_type,
@@ -104,10 +100,21 @@ impl QueryQuestion {
     }
 }
 
+impl bincode::Encode for QueryQuestion {
+    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+        encoder.writer().write(&self.domain)?;
+        match self.query_type {
+            A => 1u16.encode(encoder)?,
+        };
+        self.query_class.encode(encoder)?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::query::{QueryHeader, QueryQuestion, serialize_to_bytes};
-    use bincode::Options;
+    use crate::query::{serialize_to_bytes, QueryHeader, QueryQuestion, QueryType};
+    use crate::Query;
 
     #[test]
     fn test_query_header_to_bytes() {
@@ -124,8 +131,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_encode_domain() {
+        let encoded = QueryQuestion::encode_domain("example.com");
+        println!("{:?}", encoded);
+        assert_eq!(
+            encoded,
+            [
+                0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8, 0x03u8, 0x63u8,
+                0x6fu8, 0x6du8, 0x00u8
+            ]
+        )
+    }
+
+    #[test]
     fn test_query_question_to_bytes() {
-        let q_question = QueryQuestion::new("example.com", 1);
+        let q_question = QueryQuestion::new("example.com", QueryType::A);
         let encoded = serialize_to_bytes(&q_question);
 
         assert_eq!(
@@ -133,6 +154,21 @@ mod tests {
             [
                 0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8, 0x03u8, 0x63u8,
                 0x6fu8, 0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8
+            ]
+        )
+    }
+
+    #[test]
+    fn test_query_to_bytes() {
+        let query = Query::new(0xb962, "example.com", QueryType::A);
+        let encoded = serialize_to_bytes(&query);
+
+        assert_eq!(
+            encoded,
+            [
+                0xb9u8, 0x62u8, 0x01u8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8,
+                0x00u8, 0x00u8, 0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8,
+                0x03u8, 0x63u8, 0x6fu8, 0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8
             ]
         )
     }
