@@ -1,6 +1,7 @@
 mod answer;
 mod header;
 mod query;
+mod message;
 
 use bincode::config::{BigEndian, Configuration, Fixint};
 use bincode::{config, de, enc};

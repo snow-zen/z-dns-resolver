@@ -3,7 +3,7 @@ use bincode::enc::write::Writer;
 use bincode::enc::Encoder;
 use bincode::error::EncodeError;
 use bincode::Encode;
-use crate::header::QueryHeader;
+use crate::header::Header;
 
 
 /// 查询类型
@@ -16,31 +16,31 @@ pub enum QueryType {
 /// DNS 查询结构
 #[derive(Encode)]
 pub struct Query {
-    header: QueryHeader,
-    question: QueryQuestion,
+    header: Header,
+    question: Question,
 }
 
 impl Query {
     pub fn new(query_id: u16, domain: &str, query_type: QueryType) -> Self {
         Self {
-            header: QueryHeader::new(query_id, 0x0100, 0x0001, 0x0000, 0x0000, 0x0000),
-            question: QueryQuestion::new(domain, query_type),
+            header: Header::new(query_id, 0x0100, 0x0001, 0x0000, 0x0000, 0x0000),
+            question: Question::new(domain, query_type),
         }
     }
 }
 
-struct QueryQuestion {
+pub struct Question {
     domain: Vec<u8>,
     query_type: QueryType,
     query_class: u16,
 }
 
-impl QueryQuestion {
-    fn new(domain: &str, query_type: QueryType) -> Self {
+impl Question {
+    pub fn new(domain: &str, query_type: QueryType) -> Self {
         Self {
             query_class: 1,
             query_type,
-            domain: QueryQuestion::encode_domain(domain),
+            domain: Question::encode_domain(domain),
         }
     }
 
@@ -59,7 +59,7 @@ impl QueryQuestion {
     }
 }
 
-impl bincode::Encode for QueryQuestion {
+impl bincode::Encode for Question {
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
         encoder.writer().write(&self.domain)?;
         match self.query_type {
@@ -72,12 +72,12 @@ impl bincode::Encode for QueryQuestion {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::{Query, QueryQuestion, QueryType};
+    use crate::query::{Query, Question, QueryType};
     use crate::serialize_to_bytes;
 
     #[test]
     fn test_encode_domain() {
-        let encoded = QueryQuestion::encode_domain("example.com");
+        let encoded = Question::encode_domain("example.com");
         assert_eq!(
             encoded,
             [
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_query_question_to_bytes() {
-        let q_question = QueryQuestion::new("example.com", QueryType::A);
+        let q_question = Question::new("example.com", QueryType::A);
         let encoded = serialize_to_bytes(&q_question);
 
         assert_eq!(
