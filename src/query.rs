@@ -1,20 +1,10 @@
 use crate::query::QueryType::A;
-use bincode::config::{BigEndian, Configuration, Fixint};
 use bincode::enc::write::Writer;
 use bincode::enc::Encoder;
 use bincode::error::EncodeError;
-use bincode::{config, enc, Encode};
+use bincode::Encode;
+use crate::header::QueryHeader;
 
-const ENCODE_CONFIG: Configuration<BigEndian, Fixint> = config::standard()
-    .with_big_endian()
-    .with_fixed_int_encoding();
-
-pub fn serialize_to_bytes<E>(t: &E) -> Vec<u8>
-where
-    E: enc::Encode,
-{
-    bincode::encode_to_vec(t, ENCODE_CONFIG).unwrap()
-}
 
 /// 查询类型
 #[derive(Encode)]
@@ -35,37 +25,6 @@ impl Query {
         Self {
             header: QueryHeader::new(query_id, 0x0100, 0x0001, 0x0000, 0x0000, 0x0000),
             question: QueryQuestion::new(domain, query_type),
-        }
-    }
-}
-
-/// DNS 查询结构 Header 部分
-#[derive(Encode)]
-struct QueryHeader {
-    query_id: u16,
-    flag: u16,
-    num_questions: u16,
-    num_answers: u16,
-    num_auth: u16,
-    num_additional: u16,
-}
-
-impl QueryHeader {
-    fn new(
-        query_id: u16,
-        flag: u16,
-        num_questions: u16,
-        num_answers: u16,
-        num_auth: u16,
-        num_additional: u16,
-    ) -> Self {
-        Self {
-            query_id,
-            flag,
-            num_questions,
-            num_answers,
-            num_auth,
-            num_additional,
         }
     }
 }
@@ -113,28 +72,12 @@ impl bincode::Encode for QueryQuestion {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::{serialize_to_bytes, QueryHeader, QueryQuestion, QueryType};
-    use crate::Query;
-
-    #[test]
-    fn test_query_header_to_bytes() {
-        let q_header = QueryHeader::new(0xb962, 0x0100, 0x0001, 0x0000, 0x0000, 0x0000);
-        let encoded = serialize_to_bytes(&q_header);
-
-        assert_eq!(encoded.len(), 12);
-        assert_eq!(
-            encoded,
-            [
-                0xb9u8, 0x62u8, 0x01u8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8,
-                0x00u8, 0x00u8
-            ]
-        );
-    }
+    use crate::query::{Query, QueryQuestion, QueryType};
+    use crate::serialize_to_bytes;
 
     #[test]
     fn test_encode_domain() {
         let encoded = QueryQuestion::encode_domain("example.com");
-        println!("{:?}", encoded);
         assert_eq!(
             encoded,
             [

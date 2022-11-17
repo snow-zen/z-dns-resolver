@@ -1,9 +1,13 @@
 mod query;
+mod header;
+mod answer;
 
 use std::net::{Ipv4Addr, UdpSocket};
 use std::str::FromStr;
+use bincode::{config, enc};
+use bincode::config::{BigEndian, Configuration, Fixint};
 
-use crate::query::{serialize_to_bytes, Query, QueryType};
+use crate::query::{Query, QueryType};
 use clap::Parser;
 use rand::Rng;
 
@@ -43,4 +47,15 @@ fn main() -> std::io::Result<()> {
 
     println!("{:?}", Vec::from(&buf[..number_of_buf]));
     Ok(())
+}
+
+const ENCODE_CONFIG: Configuration<BigEndian, Fixint> = config::standard()
+    .with_big_endian()
+    .with_fixed_int_encoding();
+
+pub fn serialize_to_bytes<E>(t: &E) -> Vec<u8>
+    where
+        E: enc::Encode,
+{
+    bincode::encode_to_vec(t, ENCODE_CONFIG).unwrap()
 }
