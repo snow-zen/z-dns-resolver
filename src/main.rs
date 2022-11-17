@@ -1,11 +1,11 @@
-mod query;
-mod header;
 mod answer;
+mod header;
+mod query;
 
+use bincode::config::{BigEndian, Configuration, Fixint};
+use bincode::{config, de, enc};
 use std::net::{Ipv4Addr, UdpSocket};
 use std::str::FromStr;
-use bincode::{config, enc};
-use bincode::config::{BigEndian, Configuration, Fixint};
 
 use crate::query::{Query, QueryType};
 use clap::Parser;
@@ -49,13 +49,20 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-const ENCODE_CONFIG: Configuration<BigEndian, Fixint> = config::standard()
+const BIN_CODE_CONFIG: Configuration<BigEndian, Fixint> = config::standard()
     .with_big_endian()
     .with_fixed_int_encoding();
 
 pub fn serialize_to_bytes<E>(t: &E) -> Vec<u8>
-    where
-        E: enc::Encode,
+where
+    E: enc::Encode,
 {
-    bincode::encode_to_vec(t, ENCODE_CONFIG).unwrap()
+    bincode::encode_to_vec(t, BIN_CODE_CONFIG).unwrap()
+}
+
+pub fn deserialize_to_struct<D>(bytes: &[u8]) -> (D, usize)
+where
+    D: de::Decode,
+{
+    bincode::decode_from_slice(bytes, BIN_CODE_CONFIG).unwrap()
 }
