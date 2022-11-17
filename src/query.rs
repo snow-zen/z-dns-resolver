@@ -2,33 +2,17 @@ use crate::query::QueryType::A;
 use bincode::enc::write::Writer;
 use bincode::enc::Encoder;
 use bincode::error::EncodeError;
-use bincode::Encode;
-use crate::header::Header;
+use bincode::{Decode, Encode};
 
 
 /// 查询类型
-#[derive(Encode)]
+#[derive(Encode, Decode)]
 pub enum QueryType {
     /// A 记录
     A,
 }
 
-/// DNS 查询结构
-#[derive(Encode)]
-pub struct Query {
-    header: Header,
-    question: Question,
-}
-
-impl Query {
-    pub fn new(query_id: u16, domain: &str, query_type: QueryType) -> Self {
-        Self {
-            header: Header::new(query_id, 0x0100, 0x0001, 0x0000, 0x0000, 0x0000),
-            question: Question::new(domain, query_type),
-        }
-    }
-}
-
+#[derive(Decode)]
 pub struct Question {
     domain: Vec<u8>,
     query_type: QueryType,
@@ -72,7 +56,7 @@ impl bincode::Encode for Question {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::{Query, Question, QueryType};
+    use crate::query::{Question, QueryType};
     use crate::serialize_to_bytes;
 
     #[test]
@@ -97,21 +81,6 @@ mod tests {
             [
                 0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8, 0x03u8, 0x63u8,
                 0x6fu8, 0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8
-            ]
-        )
-    }
-
-    #[test]
-    fn test_query_to_bytes() {
-        let query = Query::new(0xb962, "example.com", QueryType::A);
-        let encoded = serialize_to_bytes(&query);
-
-        assert_eq!(
-            encoded,
-            [
-                0xb9u8, 0x62u8, 0x01u8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8,
-                0x00u8, 0x00u8, 0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8,
-                0x03u8, 0x63u8, 0x6fu8, 0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8
             ]
         )
     }

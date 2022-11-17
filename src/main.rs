@@ -1,14 +1,15 @@
 mod answer;
 mod header;
-mod query;
 mod message;
+mod query;
 
 use bincode::config::{BigEndian, Configuration, Fixint};
 use bincode::{config, de, enc};
 use std::net::{Ipv4Addr, UdpSocket};
 use std::str::FromStr;
 
-use crate::query::{Query, QueryType};
+use crate::message::Message;
+use crate::query::{QueryType};
 use clap::Parser;
 use rand::Rng;
 
@@ -34,13 +35,13 @@ fn main() -> std::io::Result<()> {
         .connect((Ipv4Addr::from_str(&args.dns_server).unwrap(), args.port))
         .expect("connect fail");
 
-    let query = Query::new(
+    let request_message = Message::new(
         rand::thread_rng().gen_range(0..65535),
         &args.domain,
         QueryType::A,
     );
     socket
-        .send(&serialize_to_bytes(&query))
+        .send(&serialize_to_bytes(&request_message))
         .expect("send message fail");
 
     let mut buf = [0; 1024 * 4]; // 4k
