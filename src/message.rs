@@ -14,7 +14,7 @@ pub struct Message {
 impl Message {
     pub fn new(query_id: u16, domain: &str, query_type: QueryType) -> Self {
         Self {
-            header: Header::new(query_id, 0x0100, 0x0001, 0x0000, 0x0000, 0x0000),
+            header: Header::new(query_id, false, 0, false, false, true, false, 0, 1, 0, 0, 0),
             question: Question::new(domain, query_type),
         }
     }
@@ -22,8 +22,8 @@ impl Message {
 
 #[cfg(test)]
 mod tests {
-    use crate::{QueryType, serialize_to_bytes};
     use crate::message::Message;
+    use crate::{serialize_to_bytes, QueryType};
 
     #[test]
     fn test_message_to_bytes() {
