@@ -22,6 +22,7 @@ use bincode::{BorrowDecode, Decode, Encode};
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// 参考：[RFC1035](https://www.rfc-editor.org/rfc/pdfrfc/rfc1035.txt.pdf)
+#[derive(PartialEq, Debug)]
 pub struct Header {
     /// 标识符。
     ///

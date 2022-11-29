@@ -43,12 +43,14 @@ impl Decode for Message {
 #[cfg(test)]
 mod tests {
     use crate::message::Message;
-    use crate::{serialize_to_bytes, QueryType};
+    use crate::{serialize_to_bytes, QueryType, deserialize_to_struct};
+    use crate::header::Header;
+    use crate::query::Question;
 
     #[test]
     fn test_message_to_bytes() {
-        let query = Message::new(0xb962, "example.com", QueryType::A);
-        let encoded = serialize_to_bytes(&query);
+        let message = Message::new(0xb962, "example.com", QueryType::A);
+        let encoded = serialize_to_bytes(&message);
 
         assert_eq!(
             encoded,
@@ -58,5 +60,19 @@ mod tests {
                 0x03u8, 0x63u8, 0x6fu8, 0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8
             ]
         )
+    }
+
+    #[test]
+    fn test_bytes_to_message() {
+        let encoded = [
+            0xb9u8, 0x62u8, 0x01u8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8,
+            0x00u8, 0x00u8, 0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8,
+            0x03u8, 0x63u8, 0x6fu8, 0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8
+        ];
+        let (message, number_size) = deserialize_to_struct::<Message>(&encoded);
+
+        assert_eq!(encoded.len(), number_size);
+        assert_eq!(message.question, Question::new("example.com", QueryType::A));
+        assert_eq!(message.header, Header::new(0xb962, false, 0, false, false, true, false, 0, 1, 0, 0, 0))
     }
 }

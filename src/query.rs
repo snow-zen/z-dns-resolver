@@ -18,6 +18,7 @@ impl From<u16> for QueryType {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct Question {
     qname: String,
     qtype: QueryType,
