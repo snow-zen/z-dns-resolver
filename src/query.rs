@@ -1,30 +1,35 @@
 use crate::query::QueryType::A;
+use bincode::de::Decoder;
 use bincode::enc::write::Writer;
 use bincode::enc::Encoder;
-use bincode::error::EncodeError;
-use bincode::{Decode, Encode};
-
+use bincode::error::{DecodeError, EncodeError};
 
 /// 查询类型
-#[derive(Encode, Decode)]
+#[repr(u16)]
+#[derive(PartialEq, Debug)]
 pub enum QueryType {
     /// A 记录
-    A,
+    A = 1,
 }
 
-#[derive(Decode)]
+impl From<u16> for QueryType {
+    fn from(x: u16) -> Self {
+        unsafe { std::mem::transmute(x) }
+    }
+}
+
 pub struct Question {
-    domain: Vec<u8>,
-    query_type: QueryType,
-    query_class: u16,
+    qname: String,
+    qtype: QueryType,
+    qclass: u16,
 }
 
 impl Question {
     pub fn new(domain: &str, query_type: QueryType) -> Self {
         Self {
-            query_class: 1,
-            query_type,
-            domain: Question::encode_domain(domain),
+            qclass: 1,
+            qtype: query_type,
+            qname: String::from(domain),
         }
     }
 
@@ -36,28 +41,55 @@ impl Question {
                     .expect("domain part is too long")
                     .to_be_bytes(),
             );
-            result.extend(part.as_bytes())
+            result.extend(part.as_bytes());
         }
-        result.extend("\0".as_bytes());
+        result.push(b'\0');
         result
     }
 }
 
 impl bincode::Encode for Question {
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        encoder.writer().write(&self.domain)?;
-        match self.query_type {
-            A => 1u16.encode(encoder)?,
+        encoder
+            .writer()
+            .write(&Question::encode_domain(&self.qname))?;
+        match self.qtype {
+            A => (A as u16).encode(encoder)?,
         };
-        self.query_class.encode(encoder)?;
+        self.qclass.encode(encoder)?;
         Ok(())
+    }
+}
+
+impl bincode::Decode for Question {
+    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+        let mut qname = Vec::new();
+        loop {
+            let label_len = u8::decode(decoder)?;
+            if label_len == b'\0' {
+                break;
+            }
+            let mut label_buf = Vec::new();
+            for _ in 0..label_len {
+                label_buf.push(u8::decode(decoder)?);
+            }
+            qname.push(String::from_utf8(label_buf).unwrap())
+        }
+
+        let qtype = QueryType::from(u16::decode(decoder)?);
+        let qclass = u16::decode(decoder)?;
+        Ok(Self {
+            qname: qname.join("."),
+            qtype,
+            qclass,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::query::{Question, QueryType};
-    use crate::serialize_to_bytes;
+    use crate::query::{QueryType, Question};
+    use crate::{deserialize_to_struct, serialize_to_bytes};
 
     #[test]
     fn test_encode_domain() {
@@ -83,5 +115,19 @@ mod tests {
                 0x6fu8, 0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8
             ]
         )
+    }
+
+    #[test]
+    fn test_bytes_to_question() {
+        let bytes = [
+            0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8, 0x03u8, 0x63u8, 0x6fu8,
+            0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8,
+        ];
+        let (question, number_size) = deserialize_to_struct::<Question>(&bytes);
+
+        assert_eq!(number_size, bytes.len());
+        assert_eq!(question.qname, "example.com");
+        assert_eq!(question.qtype, QueryType::A);
+        assert_eq!(question.qclass, 1);
     }
 }

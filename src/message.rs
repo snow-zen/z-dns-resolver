@@ -1,10 +1,13 @@
 use crate::header::Header;
 use crate::query::Question;
 use crate::QueryType;
+use bincode::de::Decoder;
+use bincode::error::{DecodeError, EncodeError};
 use bincode::{Decode, Encode};
+use bincode::enc::Encoder;
 
 /// DNS 协议通信消息
-#[derive(Encode, Decode)]
+// #[derive(Encode, Decode)]
 pub struct Message {
     header: Header,
     question: Question,
@@ -17,6 +20,23 @@ impl Message {
             header: Header::new(query_id, false, 0, false, false, true, false, 0, 1, 0, 0, 0),
             question: Question::new(domain, query_type),
         }
+    }
+}
+
+impl Encode for Message {
+    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+        self.header.encode(encoder)?;
+        self.question.encode(encoder)?;
+        Ok(())
+    }
+}
+
+impl Decode for Message {
+    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+        Ok(Self {
+            header: Header::decode(decoder)?,
+            question: Question::decode(decoder)?,
+        })
     }
 }
 
