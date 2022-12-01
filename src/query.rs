@@ -1,8 +1,10 @@
 use crate::query::QueryType::A;
 use bincode::de::Decoder;
+use bincode::de::read::Reader;
 use bincode::enc::write::Writer;
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
+use crate::decompression_domain_from_slice;
 
 /// 查询类型
 #[repr(u16)]
@@ -68,7 +70,13 @@ impl bincode::Decode for Question {
         loop {
             let label_len = u8::decode(decoder)?;
             if label_len == b'\0' {
+                // end
                 break;
+            }
+            if label_len == 0b11000000 {
+                // DNS compression! need decompression
+                let offset = usize::from_be_bytes([label_len & 0x3f, u8::decode(decoder)?]);
+                decompression_domain_from_slice(decoder.reader().peek_read(), )
             }
             let mut label_buf = Vec::new();
             for _ in 0..label_len {
