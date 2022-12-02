@@ -1,8 +1,8 @@
-use crate::de2::Deserializable;
+use crate::de::Deserializable;
 use crate::Deserializer;
 use crate::se::{Serializable, Serializer};
 
-/// DNS 查询结构 Header 部分，结构数据的最大长度为 12 字节。以下是以位为单位的数据结构示意：
+/// DNS 消息结构 Header 部分，结构数据的最大长度为 12 字节。以下是以位为单位的数据结构示意：
 ///
 ///                                     1  1  1  1  1  1
 ///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5

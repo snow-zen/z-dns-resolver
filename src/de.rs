@@ -1,7 +1,5 @@
-pub trait Deserializable<'a> {
-    fn deserializable(deserializer: &mut Deserializer) -> Option<Self>
-    where
-        Self: Sized;
+pub trait Deserializable: Sized {
+    fn deserializable(deserializer: &mut Deserializer) -> Option<Self>;
 }
 
 pub struct Deserializer<'d> {
@@ -18,6 +16,15 @@ impl<'d> Deserializer<'d> {
         let result = self.src.get(self.cursor).expect("read out of bound");
         self.cursor += 1;
         *result
+    }
+
+    pub fn read_slice2(&mut self, buf: &mut [u8]) {
+        buf.copy_from_slice(&self.src[self.cursor..]);
+        if self.cursor + buf.len() > self.src.len() {
+            self.cursor = self.src.len();
+        } else {
+            self.cursor += buf.len();
+        }
     }
 
     pub fn read_slice<const N: usize>(&mut self) -> [u8; N] {
@@ -43,5 +50,13 @@ impl<'d> Deserializer<'d> {
 
     pub fn peek_bytes(&self) -> &[u8] {
         self.src
+    }
+}
+
+impl Deserializable for u16 {
+    fn deserializable(deserializer: &mut Deserializer) -> Option<Self> {
+        let mut bytes = [0u8; 2];
+        deserializer.read_slice2(&mut bytes);
+        Some(u16::from_be_bytes(bytes))
     }
 }
