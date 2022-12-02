@@ -1,7 +1,7 @@
 use crate::query::QueryType::A;
-use crate::{
-    Deserializable, Deserializer, Serializable, Serializer,
-};
+use crate::{Deserializable, Deserializer, Serializable, Serializer};
+
+const MAX_COMPRESSION_COUNT: u8 = 126;
 
 /// 查询类型
 #[repr(u16)]
@@ -62,7 +62,7 @@ impl Question {
         result
     }
 
-    fn decode_domain(deserializer: &mut Deserializer) -> String {
+    fn decode_domain(deserializer: &mut Deserializer, recursion_count: u8) -> String {
         let mut result = Vec::new();
         loop {
             let label_len = deserializer.read();
@@ -72,9 +72,12 @@ impl Question {
             }
             if label_len == 0b11000000 {
                 // DNS compression! need decompression
+                if recursion_count > MAX_COMPRESSION_COUNT {
+                    panic!("Too many compression pointer!")
+                }
                 let offset = u16::from_be_bytes([label_len & 0x3f, deserializer.read()]);
                 let old_cursor = deserializer.reset_cursor(offset as usize);
-                result.push(Self::decode_domain(deserializer));
+                result.push(Self::decode_domain(deserializer, recursion_count + 1));
                 deserializer.reset_cursor(old_cursor);
                 break;
             }
@@ -103,7 +106,7 @@ impl Deserializable<'_> for Question {
     where
         Self: Sized,
     {
-        let qname = Question::decode_domain(deserializer);
+        let qname = Question::decode_domain(deserializer, 0);
         let qtype = QueryType::from(u16::from_be_bytes(deserializer.read_slice::<2>()));
         let qclass = u16::from_be_bytes(deserializer.read_slice::<2>());
         Some(Self {
