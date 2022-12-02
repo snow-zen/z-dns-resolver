@@ -1,7 +1,6 @@
-use bincode::de::{BorrowDecoder, Decoder};
-use bincode::enc::Encoder;
-use bincode::error::{DecodeError, EncodeError};
-use bincode::{BorrowDecode, Decode, Encode};
+use crate::de2::Deserializable;
+use crate::Deserializer;
+use crate::se::{Serializable, Serializer};
 
 /// DNS 查询结构 Header 部分，结构数据的最大长度为 12 字节。以下是以位为单位的数据结构示意：
 ///
@@ -21,7 +20,7 @@ use bincode::{BorrowDecode, Decode, Encode};
 ///     |                    ARCOUNT                    |
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
-/// 参考：[RFC1035](https://www.rfc-editor.org/rfc/pdfrfc/rfc1035.txt.pdf)
+/// 参考：[RFC1035](https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1)
 #[derive(PartialEq, Debug)]
 pub struct Header {
     /// 标识符。
@@ -123,13 +122,11 @@ impl Header {
             z: 0b000,
         }
     }
-
-    // fn do_encode()
 }
 
-impl Encode for Header {
-    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        self.id.encode(encoder)?;
+impl Serializable for Header {
+    fn serialize(&self, serializer: &mut Serializer) {
+        serializer.extend(self.id.to_be_bytes());
         let mut flag: u16 = self.qr.into();
         flag = (flag << 4) | u16::from(self.opcode & 0xfu8);
         flag = (flag << 1) | u16::from(self.aa);
@@ -138,20 +135,18 @@ impl Encode for Header {
         flag = (flag << 1) | u16::from(self.ra);
         flag = (flag << 3) | u16::from(self.z);
         flag = (flag << 4) | u16::from(self.rcode);
-        flag.encode(encoder)?;
-        self.qdcount.encode(encoder)?;
-        self.ancount.encode(encoder)?;
-        self.nscount.encode(encoder)?;
-        self.arcount.encode(encoder)?;
-        Ok(())
+        serializer.extend(flag.to_be_bytes());
+        serializer.extend(self.qdcount.to_be_bytes());
+        serializer.extend(self.ancount.to_be_bytes());
+        serializer.extend(self.nscount.to_be_bytes());
+        serializer.extend(self.arcount.to_be_bytes());
     }
 }
 
-impl Decode for Header {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
-        decoder.claim_bytes_read(12)?;
-        let id = u16::decode(decoder)?;
-        let mut flag = u16::decode(decoder)?;
+impl Deserializable<'_> for Header {
+    fn deserializable(deserializer: &mut Deserializer) -> Option<Self> {
+        let id = u16::from_be_bytes(deserializer.read_slice::<2>());
+        let mut flag = u16::from_be_bytes(deserializer.read_slice::<2>());
 
         let rcode = u8::try_from(flag & 0xfu16).unwrap();
         flag >>= 4;
@@ -168,12 +163,13 @@ impl Decode for Header {
         let opcode = u8::try_from(flag & 0xfu16).unwrap();
         flag >>= 4;
         let qr = (flag & 0x1u16) != 0;
-        let qdcount = u16::decode(decoder)?;
-        let ancount = u16::decode(decoder)?;
-        let nscount = u16::decode(decoder)?;
-        let arcount = u16::decode(decoder)?;
 
-        Ok(Self {
+        let qdcount = u16::from_be_bytes(deserializer.read_slice::<2>());
+        let ancount = u16::from_be_bytes(deserializer.read_slice::<2>());
+        let nscount = u16::from_be_bytes(deserializer.read_slice::<2>());
+        let arcount = u16::from_be_bytes(deserializer.read_slice::<2>());
+
+        Some(Self {
             id,
             qr,
             opcode,
@@ -191,21 +187,15 @@ impl Decode for Header {
     }
 }
 
-impl<'de> BorrowDecode<'de> for Header {
-    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
-        Header::decode(decoder)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::header::Header;
-    use crate::{deserialize_to_struct, serialize_to_bytes};
+    use crate::{deserialize, serialize};
 
     #[test]
-    fn test_query_header_to_bytes() {
+    fn test_serialize() {
         let q_header = Header::new(0xb962, false, 0, false, false, true, false, 0, 1, 0, 0, 0);
-        let encoded = serialize_to_bytes(&q_header);
+        let encoded = serialize(&q_header);
 
         assert_eq!(encoded.len(), 12);
         assert_eq!(
@@ -218,14 +208,13 @@ mod tests {
     }
 
     #[test]
-    fn test_bytes_to_query_header() {
+    fn test_deserialize() {
         let bytes = [
             0xb9u8, 0x62u8, 0x01u8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8,
             0x00u8,
         ];
-        let (q_header, number_size) = deserialize_to_struct::<Header>(&bytes);
+        let q_header: Header = deserialize(&bytes);
 
-        assert_eq!(number_size, 12);
         assert_eq!(q_header.id, 0xb962);
         assert_eq!(q_header.qr, false);
         assert_eq!(q_header.opcode, 0);

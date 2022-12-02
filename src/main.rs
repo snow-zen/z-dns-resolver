@@ -1,15 +1,17 @@
 mod answer;
+mod de2;
 mod header;
 mod message;
 mod query;
+mod se;
 
-use bincode::config::{BigEndian, Configuration, Fixint};
-use bincode::{config, de, enc};
 use std::net::{Ipv4Addr, UdpSocket};
 use std::str::FromStr;
 
+use crate::de2::{Deserializable, Deserializer};
 use crate::message::Message;
 use crate::query::QueryType;
+use crate::se::{Serializable, Serializer};
 use clap::Parser;
 use rand::Rng;
 
@@ -41,7 +43,8 @@ fn main() -> std::io::Result<()> {
         QueryType::A,
     );
     socket
-        .send(&serialize_to_bytes(&request_message))
+        .send(&Vec::new())
+        // .send(&serialize_to_bytes(&request_message))
         .expect("send message fail");
 
     let mut buf = [0; 1024 * 4]; // 4k
@@ -49,24 +52,6 @@ fn main() -> std::io::Result<()> {
 
     println!("{:?}", Vec::from(&buf[..number_of_buf]));
     Ok(())
-}
-
-const BIN_CODE_CONFIG: Configuration<BigEndian, Fixint> = config::standard()
-    .with_big_endian()
-    .with_fixed_int_encoding();
-
-pub fn serialize_to_bytes<E>(t: &E) -> Vec<u8>
-where
-    E: enc::Encode,
-{
-    bincode::encode_to_vec(t, BIN_CODE_CONFIG).unwrap()
-}
-
-pub fn deserialize_to_struct<D>(bytes: &[u8]) -> (D, usize)
-where
-    D: de::Decode,
-{
-    bincode::decode_from_slice(bytes, BIN_CODE_CONFIG).unwrap()
 }
 
 pub fn decompression_domain_from_slice(bytes: &[u8], mut offset: usize) -> String {
@@ -87,4 +72,21 @@ pub fn decompression_domain_from_slice(bytes: &[u8], mut offset: usize) -> Strin
         result.push(String::from_utf8(label_buf).unwrap());
     }
     result.join(".")
+}
+
+pub fn serialize<S>(src: &S) -> Vec<u8>
+where
+    S: Serializable,
+{
+    let mut serializer = Serializer::new();
+    src.serialize(&mut serializer);
+    serializer.to_owned_bytes()
+}
+
+pub fn deserialize<'d, D>(src: &[u8]) -> D
+where
+    D: Deserializable<'d>,
+{
+    let mut deserializer = Deserializer::new(src);
+    D::deserializable(&mut deserializer).unwrap()
 }

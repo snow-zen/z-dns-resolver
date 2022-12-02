@@ -10,4 +10,3 @@ authors = ["snow-zen"]
 [dependencies]
 clap = { version = "4.0.22", features = ["derive"] }
 rand = "0.8.4"
-bincode = "2.0.0-rc.2"

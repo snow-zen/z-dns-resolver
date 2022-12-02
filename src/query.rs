@@ -1,10 +1,5 @@
 use crate::query::QueryType::A;
-use bincode::de::Decoder;
-use bincode::de::read::Reader;
-use bincode::enc::write::Writer;
-use bincode::enc::Encoder;
-use bincode::error::{DecodeError, EncodeError};
-use crate::decompression_domain_from_slice;
+use crate::{Deserializable, Deserializer, Serializable, Serializer};
 
 /// 查询类型
 #[repr(u16)]
@@ -20,6 +15,21 @@ impl From<u16> for QueryType {
     }
 }
 
+/// DNS 查询结构 Query 部分
+///
+///                                     1  1  1  1  1  1
+///       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                                               |
+///     /                     QNAME                     /
+///     /                                               /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                     QTYPE                     |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                     QCLASS                    |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+/// 参考：[RFC1035](https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2)
 #[derive(PartialEq, Debug)]
 pub struct Question {
     qname: String,
@@ -51,43 +61,40 @@ impl Question {
     }
 }
 
-impl bincode::Encode for Question {
-    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        encoder
-            .writer()
-            .write(&Question::encode_domain(&self.qname))?;
+impl Serializable for Question {
+    fn serialize(&self, serializer: &mut Serializer) {
+        serializer.extend(Question::encode_domain(&self.qname));
         match self.qtype {
-            A => (A as u16).encode(encoder)?,
+            A => serializer.extend((A as u16).to_be_bytes()),
         };
-        self.qclass.encode(encoder)?;
-        Ok(())
+        serializer.extend(self.qclass.to_be_bytes());
     }
 }
 
-impl bincode::Decode for Question {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+impl Deserializable<'_> for Question {
+    fn deserializable(deserializer: &mut Deserializer) -> Option<Self> where Self: Sized {
         let mut qname = Vec::new();
         loop {
-            let label_len = u8::decode(decoder)?;
+            let label_len = deserializer.read();
             if label_len == b'\0' {
                 // end
                 break;
             }
             if label_len == 0b11000000 {
                 // DNS compression! need decompression
-                let offset = usize::from_be_bytes([label_len & 0x3f, u8::decode(decoder)?]);
-                decompression_domain_from_slice(decoder.reader().peek_read(), )
+                // let offset = usize::from_be_bytes([label_len & 0x3f, u8::decode(decoder)?]);
+                // decompression_domain_from_slice(decoder.reader().peek_read(), )
             }
             let mut label_buf = Vec::new();
             for _ in 0..label_len {
-                label_buf.push(u8::decode(decoder)?);
+                label_buf.push(deserializer.read());
             }
             qname.push(String::from_utf8(label_buf).unwrap())
         }
 
-        let qtype = QueryType::from(u16::decode(decoder)?);
-        let qclass = u16::decode(decoder)?;
-        Ok(Self {
+        let qtype = QueryType::from(u16::from_be_bytes(deserializer.read_slice::<2>()));
+        let qclass = u16::from_be_bytes(deserializer.read_slice::<2>());
+        Some(Self {
             qname: qname.join("."),
             qtype,
             qclass,
@@ -98,7 +105,7 @@ impl bincode::Decode for Question {
 #[cfg(test)]
 mod tests {
     use crate::query::{QueryType, Question};
-    use crate::{deserialize_to_struct, serialize_to_bytes};
+    use crate::{deserialize, serialize};
 
     #[test]
     fn test_encode_domain() {
@@ -113,9 +120,9 @@ mod tests {
     }
 
     #[test]
-    fn test_query_question_to_bytes() {
+    fn test_serialize() {
         let q_question = Question::new("example.com", QueryType::A);
-        let encoded = serialize_to_bytes(&q_question);
+        let encoded = serialize(&q_question);
 
         assert_eq!(
             encoded,
@@ -127,14 +134,13 @@ mod tests {
     }
 
     #[test]
-    fn test_bytes_to_question() {
+    fn test_deserialize() {
         let bytes = [
             0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8, 0x03u8, 0x63u8, 0x6fu8,
             0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8,
         ];
-        let (question, number_size) = deserialize_to_struct::<Question>(&bytes);
+        let question: Question = deserialize(&bytes);
 
-        assert_eq!(number_size, bytes.len());
         assert_eq!(question.qname, "example.com");
         assert_eq!(question.qtype, QueryType::A);
         assert_eq!(question.qclass, 1);
