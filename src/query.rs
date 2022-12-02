@@ -1,5 +1,7 @@
 use crate::query::QueryType::A;
-use crate::{Deserializable, Deserializer, Serializable, Serializer};
+use crate::{
+    Deserializable, Deserializer, Serializable, Serializer,
+};
 
 /// 查询类型
 #[repr(u16)]
@@ -59,6 +61,31 @@ impl Question {
         result.push(b'\0');
         result
     }
+
+    fn decode_domain(deserializer: &mut Deserializer) -> String {
+        let mut result = Vec::new();
+        loop {
+            let label_len = deserializer.read();
+            if label_len == b'\0' {
+                // end
+                break;
+            }
+            if label_len == 0b11000000 {
+                // DNS compression! need decompression
+                let offset = u16::from_be_bytes([label_len & 0x3f, deserializer.read()]);
+                let old_cursor = deserializer.reset_cursor(offset as usize);
+                result.push(Self::decode_domain(deserializer));
+                deserializer.reset_cursor(old_cursor);
+                break;
+            }
+            let mut label_buf = Vec::new();
+            for _ in 0..label_len {
+                label_buf.push(deserializer.read());
+            }
+            result.push(String::from_utf8(label_buf).unwrap())
+        }
+        result.join(".")
+    }
 }
 
 impl Serializable for Question {
@@ -72,30 +99,15 @@ impl Serializable for Question {
 }
 
 impl Deserializable<'_> for Question {
-    fn deserializable(deserializer: &mut Deserializer) -> Option<Self> where Self: Sized {
-        let mut qname = Vec::new();
-        loop {
-            let label_len = deserializer.read();
-            if label_len == b'\0' {
-                // end
-                break;
-            }
-            if label_len == 0b11000000 {
-                // DNS compression! need decompression
-                // let offset = usize::from_be_bytes([label_len & 0x3f, u8::decode(decoder)?]);
-                // decompression_domain_from_slice(decoder.reader().peek_read(), )
-            }
-            let mut label_buf = Vec::new();
-            for _ in 0..label_len {
-                label_buf.push(deserializer.read());
-            }
-            qname.push(String::from_utf8(label_buf).unwrap())
-        }
-
+    fn deserializable(deserializer: &mut Deserializer) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        let qname = Question::decode_domain(deserializer);
         let qtype = QueryType::from(u16::from_be_bytes(deserializer.read_slice::<2>()));
         let qclass = u16::from_be_bytes(deserializer.read_slice::<2>());
         Some(Self {
-            qname: qname.join("."),
+            qname,
             qtype,
             qclass,
         })

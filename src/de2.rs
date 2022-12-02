@@ -22,7 +22,7 @@ impl<'d> Deserializer<'d> {
 
     pub fn read_slice<const N: usize>(&mut self) -> [u8; N] {
         if self.cursor + N > self.src.len() {
-            panic!("read out of bound")
+            panic!("read out of bound");
         }
         let mut result = [0u8; N];
         for i in 0..N {
@@ -30,6 +30,15 @@ impl<'d> Deserializer<'d> {
             self.cursor += 1;
         }
         result
+    }
+
+    pub fn reset_cursor(&mut self, cursor: usize) -> usize {
+        if self.src.len() <= cursor {
+            panic!("cursor out of bound");
+        }
+        let old_cursor = self.cursor;
+        self.cursor = cursor;
+        old_cursor
     }
 
     pub fn peek_bytes(&self) -> &[u8] {

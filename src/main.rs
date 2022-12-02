@@ -54,26 +54,6 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn decompression_domain_from_slice(bytes: &[u8], mut offset: usize) -> String {
-    let mut result = Vec::new();
-    loop {
-        let label_len = bytes[offset];
-        offset += 1;
-        if label_len == b'\0' {
-            // end
-            break;
-        }
-
-        let mut label_buf = Vec::new();
-        for _ in 0..label_len {
-            label_buf.push(bytes[offset]);
-            offset += 1;
-        }
-        result.push(String::from_utf8(label_buf).unwrap());
-    }
-    result.join(".")
-}
-
 pub fn serialize<S>(src: &S) -> Vec<u8>
 where
     S: Serializable,
