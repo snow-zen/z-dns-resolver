@@ -43,14 +43,14 @@ fn main() -> std::io::Result<()> {
         QueryType::A,
     );
     socket
-        .send(&Vec::new())
-        // .send(&serialize_to_bytes(&request_message))
+        .send(&serialize(&request_message))
         .expect("send message fail");
 
     let mut buf = [0; 1024 * 4]; // 4k
     let (number_of_buf, _) = socket.recv_from(&mut buf).expect("Didn't receive data");
 
-    println!("{:?}", Vec::from(&buf[..number_of_buf]));
+    let resp_message: Message = deserialize(&buf[..number_of_buf]);
+    println!("{:?}", resp_message);
     Ok(())
 }
 
