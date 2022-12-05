@@ -31,13 +31,13 @@ impl From<u16> for QueryType {
 ///
 /// 参考：[RFC1035](https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2)
 #[derive(PartialEq, Debug)]
-pub struct Question {
+pub struct Query {
     qname: String,
     qtype: QueryType,
     qclass: u16,
 }
 
-impl Question {
+impl Query {
     pub fn new(domain: &str, query_type: QueryType) -> Self {
         Self {
             qclass: 1,
@@ -47,7 +47,7 @@ impl Question {
     }
 }
 
-impl Serializable for Question {
+impl Serializable for Query {
     fn serialize(&self, serializer: &mut Serializer) {
         serializer.extend(encode_domain(&self.qname));
         match self.qtype {
@@ -57,7 +57,7 @@ impl Serializable for Question {
     }
 }
 
-impl Deserializable<'_> for Question {
+impl Deserializable for Query {
     fn deserializable(deserializer: &mut Deserializer) -> Option<Self>
     where
         Self: Sized,
@@ -75,12 +75,12 @@ impl Deserializable<'_> for Question {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::{QueryType, Question};
+    use crate::query::{QueryType, Query};
     use crate::{deserialize, serialize};
 
     #[test]
     fn test_serialize() {
-        let q_question = Question::new("example.com", QueryType::A);
+        let q_question = Query::new("example.com", QueryType::A);
         let encoded = serialize(&q_question);
 
         assert_eq!(
@@ -98,7 +98,7 @@ mod tests {
             0x07u8, 0x65u8, 0x78u8, 0x61u8, 0x6du8, 0x70u8, 0x6cu8, 0x65u8, 0x03u8, 0x63u8, 0x6fu8,
             0x6du8, 0x00u8, 0x00u8, 0x01u8, 0x00u8, 0x01u8,
         ];
-        let question: Question = deserialize(&bytes);
+        let question: Query = deserialize(&bytes);
 
         assert_eq!(question.qname, "example.com");
         assert_eq!(question.qtype, QueryType::A);

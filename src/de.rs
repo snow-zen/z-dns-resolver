@@ -19,12 +19,20 @@ impl<'d> Deserializer<'d> {
     }
 
     pub fn read_slice2(&mut self, buf: &mut [u8]) {
-        buf.copy_from_slice(&self.src[self.cursor..]);
-        if self.cursor + buf.len() > self.src.len() {
-            self.cursor = self.src.len();
-        } else {
-            self.cursor += buf.len();
+        let mut len = buf.len();
+        if self.cursor + len > self.src.len() {
+            len = self.src.len() - self.cursor;
         }
+        buf.copy_from_slice(&self.src[self.cursor..(self.cursor + len)]);
+        self.cursor += len;
+    }
+
+    pub fn read_slice3(&mut self, len: usize) -> Vec<u8> {
+        let mut result = Vec::new();
+        for _ in 0..len {
+            result.push(self.read());
+        }
+        result
     }
 
     pub fn read_slice<const N: usize>(&mut self) -> [u8; N] {
@@ -58,5 +66,13 @@ impl Deserializable for u16 {
         let mut bytes = [0u8; 2];
         deserializer.read_slice2(&mut bytes);
         Some(u16::from_be_bytes(bytes))
+    }
+}
+
+impl Deserializable for u32 {
+    fn deserializable(deserializer: &mut Deserializer) -> Option<Self> {
+        let mut bytes = [0u8; 4];
+        deserializer.read_slice2(&mut bytes);
+        Some(u32::from_be_bytes(bytes))
     }
 }

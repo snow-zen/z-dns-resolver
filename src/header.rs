@@ -122,6 +122,22 @@ impl Header {
             z: 0b000,
         }
     }
+
+    pub fn num_questions(&self) -> u16 {
+        self.qdcount
+    }
+
+    pub fn num_answers(&self) -> u16 {
+        self.ancount
+    }
+
+    pub fn num_authorities(&self) -> u16 {
+        self.nscount
+    }
+
+    pub fn num_additionals(&self) -> u16 {
+        self.arcount
+    }
 }
 
 impl Serializable for Header {
@@ -143,7 +159,7 @@ impl Serializable for Header {
     }
 }
 
-impl Deserializable<'_> for Header {
+impl Deserializable for Header {
     fn deserializable(deserializer: &mut Deserializer) -> Option<Self> {
         let id = u16::from_be_bytes(deserializer.read_slice::<2>());
         let mut flag = u16::from_be_bytes(deserializer.read_slice::<2>());

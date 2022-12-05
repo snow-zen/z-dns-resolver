@@ -52,7 +52,16 @@ fn main() -> std::io::Result<()> {
     let (number_of_buf, _) = socket.recv_from(&mut buf).expect("Didn't receive data");
 
     let resp_message: Message = deserialize(&buf[..number_of_buf]);
-    println!("{:?}", resp_message);
+    for answer in resp_message.get_answers() {
+        println!(
+            "{}\t\t{}\t{}\t{}",
+            answer.get_name(),
+            answer.get_ttl(),
+            answer.get_type_name(),
+            answer.get_rdata()
+        )
+    }
+
     Ok(())
 }
 
@@ -65,9 +74,9 @@ where
     serializer.to_owned_bytes()
 }
 
-pub fn deserialize<'d, D>(src: &[u8]) -> D
+pub fn deserialize<D>(src: &[u8]) -> D
 where
-    D: Deserializable<'d>,
+    D: Deserializable,
 {
     let mut deserializer = Deserializer::new(src);
     D::deserializable(&mut deserializer).unwrap()
